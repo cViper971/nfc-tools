@@ -1,0 +1,47 @@
+name: Build iOS App
+
+on:
+  workflow_dispatch: # Allows manual trigger from the GitHub Actions tab
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Generate iOS Native Files (Expo Prebuild)
+        run: npx expo prebuild --platform ios
+
+      - name: Build Unsigned App with Xcode
+        # Expo strips hyphens for Xcode files, so "nfc-hacker" becomes "nfchacker"
+        run: |
+          xcodebuild \
+            -workspace ios/nfchacker.xcworkspace \
+            -scheme nfchacker \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_IDENTITY="" \
+            -derivedDataPath build_output
+
+      - name: Package into IPA
+        run: |
+          mkdir Payload
+          cp -r build_output/Build/Products/Release-iphoneos/*.app Payload/
+          zip -r nfc-hacker.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfc-hacker-app
+          path: nfc-hacker.ipa

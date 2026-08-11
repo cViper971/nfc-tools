@@ -1,98 +1,77 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { useEffect, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import NfcManager, { Ndef, NfcTech } from 'react-native-nfc-manager';
 
 export default function HomeScreen() {
+  const [hasNfc, setHasNfc] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    async function checkNfc() {
+      const supported = await NfcManager.isSupported();
+      setHasNfc(supported);
+      if (supported) {
+        await NfcManager.start();
+      }
+    }
+    checkNfc();
+  }, []);
+
+  async function readTag() {
+    try {
+      await NfcManager.requestTechnology(NfcTech.Ndef);
+      const tag = await NfcManager.getTag();
+      alert(`Tag found! UID: ${tag?.id}`);
+    } catch (ex) {
+      console.warn('Tag read failed', ex);
+    } finally {
+      NfcManager.cancelTechnologyRequest();
+    }
+  }
+
+  async function writeTag() {
+    try {
+      await NfcManager.requestTechnology(NfcTech.Ndef);
+      const bytes = Ndef.encodeMessage([
+        Ndef.textRecord('Hello from Windows!')
+      ]);
+      if (bytes) {
+        await NfcManager.ndefHandler.writeNdefMessage(bytes);
+        alert('Successfully overwrote the hotel card!');
+      }
+    } catch (ex) {
+      alert('Write failed. The hotel might have locked this chip.');
+    } finally {
+      NfcManager.cancelTechnologyRequest();
+    }
+  }
+
+  if (hasNfc === false) {
+    return (
+      <View style={styles.container}>
+        <Text>NFC is not supported on this device.</Text>
+      </View>
+    );
+  }
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <View style={styles.container}>
+      <Text style={styles.title}>NFC Card Tool</Text>
+      
+      <TouchableOpacity style={styles.button} onPress={readTag}>
+        <Text style={styles.buttonText}>1. Read Card</Text>
+      </TouchableOpacity>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      <TouchableOpacity style={[styles.button, styles.writeButton]} onPress={writeTag}>
+        <Text style={styles.buttonText}>2. Overwrite Card</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 40 },
+  button: { backgroundColor: '#007AFF', padding: 15, borderRadius: 8, width: '100%', marginBottom: 15 },
+  writeButton: { backgroundColor: '#FF3B30' },
+  buttonText: { color: 'white', textAlign: 'center', fontSize: 16, fontWeight: 'bold' }
 });
