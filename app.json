@@ -3,6 +3,7 @@
     "name": "nfc-hacker",
     "slug": "nfc-hacker",
     "version": "1.0.0",
+    "scheme": "nfchacker",
     "ios": {
       "bundleIdentifier": "com.nfchacker.app"
     },

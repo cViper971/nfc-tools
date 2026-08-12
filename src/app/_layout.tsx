@@ -3,7 +3,8 @@ import { Stack } from 'expo-router';
 export default function RootLayout() {
   return (
     <Stack>
-      <Stack.Screen name="index" options={{ title: 'NFC Hacker' }} />
+      {/* This points directly to your index.tsx file */}
+      <Stack.Screen name="index" options={{ title: 'NFC Tool' }} />
     </Stack>
   );
 }
